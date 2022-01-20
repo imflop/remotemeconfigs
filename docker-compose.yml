@@ -1,0 +1,75 @@
+version: '3'
+
+services:
+  postgres:
+    restart: always
+    image: postgres:13-alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_HOST=127.0.0.1
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=postgres
+    volumes:
+      - ./pg_data:/var/lib/postgresql/data/
+
+  redis:
+    restart: always
+    image: redis
+    volumes:
+      - ./rd_data:/data
+
+  api:
+    restart: always
+    container_name: api
+    image: imflop/remoteme:latest
+    command: /app/.ci/remoteme-entrypoint.sh
+    environment:
+      - DEBUG=False
+      - SECRET_KEY=secret
+      - POSTGRES_HOST=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=postgres
+      - POSTGRES_PORT=5432
+      - REDIS=redis
+      - GRABBERS_HOST=grabbers
+      - GRABBERS_PORT=7000
+      - GRABBERS_TOKEN=token
+    depends_on:
+      - postgres
+      - redis
+      - grabbers
+    ports:
+      - 8080:8080
+    volumes:
+      - ./logs:/app/logs
+      - ./static_data:/app/static
+
+  grabbers:
+    restart: always
+    container_name: grabbers
+    hostname: grabbers
+    image: imflop/grabbers:latest
+    environment:
+      - DEBUG=False
+      - SENTRY_DSN=dsn
+      - TELEGRAM_TOKEN=token
+      - TELEGRAM_API_TOKEN=api-token
+      - TELEGRAM_CHANNELS={}
+  
+  frontend:
+    restart: always
+    container_name: frontend
+    image: imflop/remotemefront:latest
+    environment:
+      - NEXT_PUBLIC_HOST=https://hostname/v1
+    ports:
+      - 3000:3000
+    depends_on:
+      - api
+
+volumes:
+  pg_data:
+  rd_data:
+  static_data:
